@@ -1,0 +1,250 @@
+import os
+import pandas as pd
+import Graph
+from Graph import HMM
+from Graph import construct_X
+import numpy as np
+
+def calculate_conditional_prob_C(hmm_model, forward_probs, backward_probs):
+    T = hmm_model.T  
+    num_states = 3  
+    conditional_prob_C = np.zeros((T, num_states))
+
+    for t in range(T):
+        for state in range(num_states):
+            conditional_prob_C[t, state] = forward_probs[t, state] * backward_probs[t, state]
+        
+        # Normalize the probabilities and avoiding division by zero
+        normalization_constant = np.sum(conditional_prob_C[t, :])
+        if normalization_constant > 0:   
+            conditional_prob_C[t, :] /= normalization_constant
+
+    return conditional_prob_C
+
+def calculate_conditional_prob_Z(hmm_model, forward_probs, backward_probs):
+    # Probability for Z_t,i being 0 or 1
+    conditional_prob_Z = np.zeros((hmm_model.T, hmm_model.n, 2))  
+
+    for t in range(hmm_model.T):
+        for i in range(hmm_model.n):
+            c_node = hmm_model.C_node_list[t]
+            for z_value in [0, 1]:
+                # Multiply the forward probability of C_t, the backward probability of C_t, and the probability of Z_t,i given C_t
+                conditional_prob_Z[t, i, z_value] = forward_probs[t, c_node.C_value] * \
+                                                    c_node.P_Z_given_C(z_value) * \
+                                                    backward_probs[t, c_node.C_value]
+                
+                # Normalize the probabilities and avoiding division by zero
+                normalization_constant = np.sum(conditional_prob_Z[t, i])
+                if normalization_constant != 0:  
+                    conditional_prob_Z[t, i] /= normalization_constant
+
+    return conditional_prob_Z
+
+def forward_pass(hmm_model, X):
+    T = hmm_model.T
+    num_states = 3
+    forward_probs = np.zeros((T, num_states))
+
+    forward_probs[0] = hmm_model.initial_state_distribution
+
+    for t in range(1, T):
+        for s in range(num_states):
+            sum_prob = 0
+            for prev_s in range(num_states):
+                transition_prob = hmm_model.C_node_list[t - 1].transition_matrix[prev_s, s]
+                emission_prob = hmm_model.C_node_list[t].Z_node_list[s].X_node.observation_probability(X[t][s])
+                sum_prob += forward_probs[t - 1, prev_s] * transition_prob * emission_prob
+            forward_probs[t, s] = sum_prob
+    
+    return forward_probs
+
+def backward_pass(hmm_model, X):
+    T = hmm_model.T
+# because 3 possible states for C_t
+    num_states = 3  
+    backward_probs = np.zeros((T, num_states))
+
+    for s in range(num_states):
+        emission_probs = np.prod([
+            hmm_model.C_node_list[T-1].Z_node_list[i].X_node.observation_probability(X[T-1][i])
+            for i in range(hmm_model.n)
+        ])
+
+        backward_probs[T-1, s] = hmm_model.initial_state_distribution[s] * emission_probs
+
+
+# Start from T-2 since T-1 is initialized
+    for t in range(T - 2, -1, -1):  
+        for s in range(num_states):
+            sum_prob = 0
+            for next_s in range(num_states):
+                # Calculate emission probabilities for all X_nodes at time t+1
+                emission_probs = np.prod([
+                    hmm_model.C_node_list[t+1].Z_node_list[i].X_node.observation_probability(X[t+1][i])
+                    for i in range(hmm_model.n)
+                ])
+
+
+                transition_prob = hmm_model.C_node_list[t].transition_matrix[s, next_s]
+                sum_prob += backward_probs[t + 1, next_s] * transition_prob * emission_probs
+
+            backward_probs[t, s] = sum_prob
+
+    return backward_probs
+
+
+def forward_backward_algorithm(hmm_model, X):
+    forward_probs = forward_pass(hmm_model, X)
+    backward_probs = backward_pass(hmm_model, X)
+    return forward_probs, backward_probs
+
+# Define HMM parameters
+T = 100  # Number of time steps
+n = 5   # Number of states
+
+
+#---------------------------------------------------------------Simulation test-----------------------------------------
+# Probability parameters for your HMM
+sim_para_dict = {
+    "gamma": 0.1,
+    "beta": 0.2,
+    "alpha": 0.9,
+    "lambda_Z0": 1.0, 
+    "lambda_Z1": 2.0
+}
+
+my_hmm = HMM(T, n)
+
+my_hmm.set_proba_paras(sim_para_dict)
+
+# Simulate the HMM and convert to df
+simulation_results = my_hmm.start_simulation()
+state_df = my_hmm.state_as_df()  
+
+X = construct_X(state_df)
+
+# Run forward-backward algorithm
+forward_probs, backward_probs = forward_backward_algorithm(my_hmm, X)
+
+# Calculate conditional probabilities
+conditional_prob_C = calculate_conditional_prob_C(my_hmm, forward_probs, backward_probs)
+conditional_prob_Z = calculate_conditional_prob_Z(my_hmm, forward_probs, backward_probs)
+
+print("Conditional probabilities for variable C:")  
+print(conditional_prob_C)
+
+print("Conditional probabilities for variable Z:")
+print(conditional_prob_Z)
+
+#-----------------------------calculate the average for multiple runs to test for average = ca zero-----------------------------------------
+
+def test_hmm_implementation(hmm_model, num_replications):
+    differences_C = []
+    differences_Z = []
+
+    for _ in range(num_replications):
+        hmm_model.reset_HMM_values()
+        hmm_model.start_simulation()
+        df = hmm_model.state_as_df()  
+        
+        # Assuming observed variables are columns named 'X1' to 'X5'
+        X = df.filter(regex='^X\d+$').values  
+
+        forward_probs, backward_probs = forward_backward_algorithm(hmm_model, X)
+
+        # Run the forward_backward_algorithm
+        forward_probs, backward_probs = forward_backward_algorithm(hmm_model, X)
+
+        # Compute conditional probabilities
+        conditional_prob_C = calculate_conditional_prob_C(hmm_model, forward_probs, backward_probs)
+        conditional_prob_Z = calculate_conditional_prob_Z(hmm_model, forward_probs, backward_probs)
+
+        # Extract simulated values for C and Z
+        C_simulated = [c.C_value for c in hmm_model.C_node_list]
+        Z_simulated = [[z.Z_value for z in c.Z_node_list] for c in hmm_model.C_node_list]
+
+        # Calculate the difference for C and Z and store them
+        for t in range(hmm_model.T):
+            for state in range(3): 
+                indicator_C = int(C_simulated[t] == state)
+                difference_C = indicator_C - conditional_prob_C[t, state]
+                differences_C.append(difference_C)
+
+            for i in range(hmm_model.n):
+                for z_value in [0, 1]:
+                    indicator_Z = int(Z_simulated[t][i] == z_value)
+                    difference_Z = indicator_Z - conditional_prob_Z[t, i, z_value]
+                    differences_Z.append(difference_Z)
+
+    # get the averages across all replications
+    average_difference_C = np.mean(differences_C)
+    average_difference_Z = np.mean(differences_Z)
+
+    print("Average difference for C:", average_difference_C)
+    print("Average difference for Z:", average_difference_Z)
+
+    return average_difference_C, average_difference_Z
+
+
+number_of_replications = 10  
+
+# Call HMM model with the number of replications.
+test_hmm_implementation(my_hmm, number_of_replications)
+
+#---------------------------------------------------------------------------inference på data file-----------------------------
+
+def process_data_in_folder(folder_of_data):
+    X_list = []
+    for filename in os.listdir(folder_of_data):
+        if os.path.isfile(os.path.join(folder_of_data, filename)):
+            this_df = pd.read_csv(os.path.join(folder_of_data, filename))
+            print(f"Processing file: {filename}")
+            print("DataFrame from CSV file:")
+            X_list.append(Graph.construct_X(this_df))
+    return X_list
+
+
+def apply_inference_algorithm(data):
+    results = []
+    for dataset in data:
+        T, n = dataset.shape[0], dataset.shape[1]
+        
+        # Define HMM parameters and create HMM instance
+        sim_para_dict = {
+            "gamma": 0.1,
+            "beta": 0.2,
+            "alpha": 0.9,
+            "lambda_Z0": 1.0, 
+            "lambda_Z1": 2.0
+        }
+        my_hmm = HMM(T, n)
+        my_hmm.set_proba_paras(sim_para_dict)
+        
+        # Run forward-backward algorithm
+        forward_probs, backward_probs = forward_backward_algorithm(my_hmm, dataset)  
+        
+        # Calculate conditional probabilities
+        conditional_prob_C = calculate_conditional_prob_C(my_hmm, forward_probs, backward_probs)
+        conditional_prob_Z = calculate_conditional_prob_Z(my_hmm, forward_probs, backward_probs)
+        
+        results.append((conditional_prob_C, conditional_prob_Z))
+    
+    return results
+
+folder_path = r"C:\Users\nicol\OneDrive\Skrivebord\ComplexSystems\proj_HMM"
+
+data = process_data_in_folder(folder_path)
+
+# Apply the inference algorithm on the data and present results
+results = apply_inference_algorithm(data)
+
+for i, result in enumerate(results):
+    print(f"Results for Dataset {i+1}:")
+    conditional_prob_C, conditional_prob_Z = result
+    print("Conditional probabilities for variable C:")
+    print(conditional_prob_C)
+    print("Conditional probabilities for variable Z:")
+    print(conditional_prob_Z)
+    print("\n") 
+
