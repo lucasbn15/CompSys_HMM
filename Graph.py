@@ -12,6 +12,15 @@ class HMM():
         self.C_node_list = [self.first_node]
         for t in range(1, T):
             self.C_node_list.append(C_node(t, n, self.C_node_list[-1], self))
+        # Initializ Z-value - added to support inference algorithms
+        self.initialize_Z_values()
+
+    
+    # Initialize Z-values here based on observed data - added to support inference algorithms
+    def initialize_Z_values(self):
+        for t in range(self.T):
+            for z_node in self.C_node_list[t].Z_node_list:
+                z_node.set_Z_value(0)
 
     def set_proba_paras(self, para_dict):
         for t in range(self.T):
