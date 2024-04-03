@@ -192,7 +192,7 @@ class C_node():
             else:
                 return (1 - alpha) if self.C_value == 1 else alpha
         else:
-            raise ValueError("C_t must be one of the values [0, 1, 2]")
+            raise ValueError("Somethin wrong with C_t")
 
 
 class Z_node():
