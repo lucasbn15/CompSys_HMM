@@ -120,7 +120,7 @@ class C_node():
         if t==1:
             self.C_value = 2
         else:
-            self.C_value = None # {0, 1, 2}
+            self.C_value = 0 # {0, 1, 2}
 
         # probability parameters
         self.gamma = None
