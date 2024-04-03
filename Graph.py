@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import os
 import re
+from scipy.stats import poisson
+
 
 class HMM():
     def __init__(self, T, n) -> None:
