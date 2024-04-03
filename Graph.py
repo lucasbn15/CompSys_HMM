@@ -178,6 +178,21 @@ class C_node():
         self.set_C_value(None)
         for z in self.Z_node_list:
             z.reset()
+            
+#Added for inference
+    def P_Z_given_C(self, z_value): 
+        if self.C_value == 2:
+            # If C_t is 2, Z_t,i is equally likely to be 0 or 1
+            return 0.5
+        elif self.C_value in [0, 1]:
+            # If C_t is 0 or 1, then we use the alpha parameter to determine the probability
+            alpha = self.Z_node_list[0].alpha  
+            if z_value == 1:
+                return alpha if self.C_value == 1 else (1 - alpha)
+            else:
+                return (1 - alpha) if self.C_value == 1 else alpha
+        else:
+            raise ValueError("C_t must be one of the values [0, 1, 2]")
 
 
 class Z_node():
@@ -225,6 +240,15 @@ class Z_node():
     def reset(self):
         self.set_Z_value(None)
         self.X_node.reset()
+        
+#Added for inference
+    def observation_probability(self, observation):
+        if self.parent.Z_value == 0:
+            return poisson.pmf(observation, self.lambda_Z0)
+        elif self.parent.Z_value == 1:
+            return poisson.pmf(observation, self.lambda_Z1)
+        else:
+            raise ValueError("Z_value is not set properly.")
 
 
 class X_node():
