@@ -282,12 +282,14 @@ class X_node():
 
 #Added for inference
     def observation_probability(self, observation):
-        if self.parent.Z_value == 0:
-            return poisson.pmf(observation, self.lambda_Z0)
-        elif self.parent.Z_value == 1:
-            return poisson.pmf(observation, self.lambda_Z1)
-        else:
-            raise ValueError("Z_value is not set properly.")
+        if np.isscalar(observation):
+            observation = np.array([observation])
+        
+        prob_matrix = np.zeros((len(observation), 2))
+        prob_matrix[:, 0] = poisson.pmf(observation, self.lambda_Z0)  
+        prob_matrix[:, 1] = poisson.pmf(observation, self.lambda_Z1)  
+        
+        return prob_matrix.squeeze()
 
 
 def load_csv_as_HMM(csv_file_path):
