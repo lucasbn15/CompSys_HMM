@@ -96,6 +96,13 @@ class HMM():
             this_t_state.extend([z.X_node.X_value for z in C.Z_node_list])
             state_as_lists.append(this_t_state)
         return np.array(state_as_lists)
+        
+#added to support inference
+    @property
+    def initial_state_distribution(self): #Tilføjet
+        # Implement the initial state distribution method
+        # Assuming a uniform distribution as a simple case
+        return np.array([1.0, 1.0, 1.0]) / 3
 
 
 class C_node():
