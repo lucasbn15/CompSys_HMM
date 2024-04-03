@@ -46,7 +46,6 @@ def forward_pass(hmm_model, X):
     num_states = 3
     forward_probs = np.zeros((T, num_states))
     forward_probs[0] = hmm_model.initial_state_distribution
-    print("Initial forward probabilities:", forward_probs[0])  # Debugging statement
 
     for t in range(1, T):
         for s in range(num_states):
@@ -57,8 +56,7 @@ def forward_pass(hmm_model, X):
                 sum_prob += forward_probs[t - 1, prev_s] * transition_prob * emission_prob
             forward_probs[t, s] = sum_prob
             if sum_prob == 0:
-                print(f"Zero forward probability at time {t} and state {s}")  # Debugging statement
-
+                print(f"Zero forward probability at time {t} and state {s}") 
     return forward_probs
 
 def backward_pass(hmm_model, X):
@@ -66,74 +64,28 @@ def backward_pass(hmm_model, X):
     num_states = 3  
     backward_probs = np.zeros((T, num_states))
 
-    print("Initial state distribution:", hmm_model.initial_state_distribution)
-
-    # Initialize backward probabilities for the last time step
-    for s in range(num_states):
-        emission_probs = np.prod([
-            hmm_model.C_node_list[T-1].Z_node_list[i].X_node.observation_probability(X[T-1][i])
-            for i in range(hmm_model.n)
-        ])
-        print(f"Emission probabilities for state {s} at time {T-1}:", emission_probs)
-
-        backward_probs[T-1, s] = hmm_model.initial_state_distribution[s] * emission_probs
-        print(f"Backward probability for state {s} at time {T-1}:", backward_probs[T-1, s])
-
-    if np.any(backward_probs[T-1, :] == 0):
-        print("Zero backward probability found at the last time step:", backward_probs[T-1, :])
+    # Initialize backward probabilities for the last time step to 1
+    backward_probs[T-1, :] = 1
 
     # Compute backward probabilities
-    for t in range(T - 2, -1, -1):  
+    for t in range(T - 2, -1, -1):
         for s in range(num_states):
             sum_prob = 0
             for next_s in range(num_states):
-                emission_probs = np.prod([
-                    hmm_model.C_node_list[t+1].Z_node_list[i].X_node.observation_probability(X[t+1][i])
-                    for i in range(hmm_model.n)
-                ])
+                emission_prob = hmm_model.C_node_list[t+1].Z_node_list[next_s].X_node.observation_probability(X[t+1][next_s])
                 transition_prob = hmm_model.C_node_list[t].transition_matrix[s, next_s]
-                sum_prob += backward_probs[t + 1, next_s] * transition_prob * emission_probs
-
+                sum_prob += backward_probs[t + 1, next_s] * transition_prob * emission_prob
             backward_probs[t, s] = sum_prob
 
-            if sum_prob == 0:
-                print(f"Zero backward probability at time {t} and state {s}")
-
     return backward_probs
-
 
 def forward_backward_algorithm(hmm_model, X):
     forward_probs = forward_pass(hmm_model, X)
     backward_probs = backward_pass(hmm_model, X)
     return forward_probs, backward_probs
 
-def validate_transition_matrix(hmm_model):
-    for t, c_node in enumerate(hmm_model.C_node_list):
-        transition_matrix = c_node.transition_matrix
-        if transition_matrix is None:
-            print(f"No transition matrix set for C_node at time {t}.")
-            continue
 
-        rows_sum = np.sum(transition_matrix, axis=1)
-        
-        # Check if any row sums to zero or does not sum to 1
-        if not np.allclose(rows_sum, 1):
-            print(f"Transition matrix rows do not sum to 1 at time {t}: {rows_sum}")
-        
-        # Check for zero rows
-        if np.any(np.sum(transition_matrix, axis=1) == 0):
-            print(f"Transition matrix has a zero row at time {t}.")
 
-        # Check for zero columns
-        if np.any(np.sum(transition_matrix, axis=0) == 0):
-            print(f"Transition matrix has a zero column at time {t}.")
-
-        # Check for individual zero probabilities
-        if np.any(transition_matrix == 0):
-            zero_prob_indices = np.argwhere(transition_matrix == 0)
-            #print(f"Transition matrix has zero probabilities at indices {zero_prob_indices} at time {t}.")
-
-# Call the validation function after all C_nodes have had their transition matrix set
 
 
 # Define HMM parameters
@@ -148,16 +100,12 @@ sim_para_dict = {
     "beta": 0.2,
     "alpha": 0.9,
     "lambda_Z0": 1.0, 
-    "lambda_Z1": 2.0
+    "lambda_Z1": 5.0
 }
 
 my_hmm = HMM(T, n)
 
 my_hmm.set_proba_paras(sim_para_dict)
-
-
-# Validate the transition matrix after it's been set
-validate_transition_matrix(my_hmm)
 
 # Simulate the HMM and convert to df
 simulation_results = my_hmm.start_simulation()
@@ -172,11 +120,11 @@ forward_probs, backward_probs = forward_backward_algorithm(my_hmm, X)
 conditional_prob_C = calculate_conditional_prob_C(my_hmm, forward_probs, backward_probs)
 conditional_prob_Z = calculate_conditional_prob_Z(my_hmm, forward_probs, backward_probs)
 
-print("Conditional probabilities for variable C:")  
-print(conditional_prob_C)
+#print("Conditional probabilities for variable C:")  
+#print(conditional_prob_C)
 
-print("Conditional probabilities for variable Z:")
-print(conditional_prob_Z)
+#print("Conditional probabilities for variable Z:")
+#print(conditional_prob_Z)
 
 
 #-----------------------------calculate the average for multiple runs to test for average = ca zero-----------------------------------------
@@ -289,6 +237,9 @@ for i, result in enumerate(results):
     print("Conditional probabilities for variable Z:")
     print(conditional_prob_Z)
     print("\n") 
+
+
+
 
 
 
