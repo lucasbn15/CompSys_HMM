@@ -240,15 +240,6 @@ class Z_node():
     def reset(self):
         self.set_Z_value(None)
         self.X_node.reset()
-        
-#Added for inference
-    def observation_probability(self, observation):
-        if self.parent.Z_value == 0:
-            return poisson.pmf(observation, self.lambda_Z0)
-        elif self.parent.Z_value == 1:
-            return poisson.pmf(observation, self.lambda_Z1)
-        else:
-            raise ValueError("Z_value is not set properly.")
 
 
 class X_node():
@@ -288,6 +279,15 @@ class X_node():
         
     def reset(self):
         self.set_X_value(None)
+
+#Added for inference
+    def observation_probability(self, observation):
+        if self.parent.Z_value == 0:
+            return poisson.pmf(observation, self.lambda_Z0)
+        elif self.parent.Z_value == 1:
+            return poisson.pmf(observation, self.lambda_Z1)
+        else:
+            raise ValueError("Z_value is not set properly.")
 
 
 def load_csv_as_HMM(csv_file_path):
