@@ -143,9 +143,6 @@ def test_hmm_implementation(hmm_model, num_replications):
 
         forward_probs, backward_probs = forward_backward_algorithm(hmm_model, X)
 
-        # Run the forward_backward_algorithm
-        forward_probs, backward_probs = forward_backward_algorithm(hmm_model, X)
-
         # Compute conditional probabilities
         conditional_prob_C = calculate_conditional_prob_C(hmm_model, forward_probs, backward_probs)
         conditional_prob_Z = calculate_conditional_prob_Z(hmm_model, forward_probs, backward_probs)
